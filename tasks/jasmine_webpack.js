@@ -17,7 +17,8 @@ var path = require('path'),
 
     jasmine = require('jasmine-core'),
 
-    tempDir = '.grunt/grunt-jasmine-webpack';
+    tempDir = '.grunt/grunt-jasmine-webpack',
+    puppeteer = require('puppeteer');
 
 module.exports = function (grunt) {
 
@@ -185,145 +186,155 @@ module.exports = function (grunt) {
 
             if (!options.norun) {
 
-                phantomjs.on('fail.load', function (url) {
-                    phantomjs.halt();
-                    grunt.log.error('PhantomJS unable to load URL ' + url);
-                    done(false);
+                puppeteer.launch().then((browser) => {
+                    console.log("launched puppeteer")
+                    browser.newPage().then((page) => {
+                        console.log("newPAged")
+                        page.goto(options.specRunnerDest).then((...args) => {
+                            console.log(args, " done with page goto")
+                        })
+                    });
                 });
 
-                phantomjs.on('fail.timeout', function () {
-                    phantomjs.halt();
-                    grunt.log.error('PhantomJS timed out.');
-                    done(false);
-                });
+                // phantomjs.on('fail.load', function (url) {
+                //     phantomjs.halt();
+                //     grunt.log.error('PhantomJS unable to load URL ' + url);
+                //     done(false);
+                // });
 
-                // Run tests in phantomjs, if options.norun is false.
-                phantomjs.spawn(options.specRunnerDest, {
-                    options: {
-                        timeout: options.timeout
-                    },
-                    done: function () {
-                        // Clean up.
-                        if (!options.keepRunner) {
-                            // Bit of a faff here, but basically I coudn't get rimraf
-                            // to work without causing phantom to crash, so here
-                            // we find and remove all files and dirs we've created.
-                            var subdirs = [];
-                            fs.unlinkSync(options.specRunnerDest);
-                            grunt.file.recurse(tempDir, function (filepath, rootdir, subdir) {
-                                fs.unlinkSync(filepath);
-                                if (subdir) {
-                                    subdirs.push(path.join(rootdir, subdir));
-                                }
-                            });
-                            subdirs.forEach(function (dir) {
-                                try {
-                                    fs.rmdirSync(dir);
-                                } catch (e) {}
-                            });
-                            fs.rmdirSync(tempDir);
+                // phantomjs.on('fail.timeout', function () {
+                //     phantomjs.halt();
+                //     grunt.log.error('PhantomJS timed out.');
+                //     done(false);
+                // });
 
-                            // Try to remove .grunt as well, but there could be other things in there.
-                            try {
-                                fs.rmdirSync('.grunt');
-                            } catch (e) {}
-                        }
-                        done(failedSpecs <= 0);
-                    }
-                });
+                // // Run tests in phantomjs, if options.norun is false.
+                // phantomjs.spawn(options.specRunnerDest, {
+                //     options: {
+                //         timeout: options.timeout
+                //     },
+                //     done: function () {
+                //         // Clean up.
+                //         if (!options.keepRunner) {
+                //             // Bit of a faff here, but basically I coudn't get rimraf
+                //             // to work without causing phantom to crash, so here
+                //             // we find and remove all files and dirs we've created.
+                //             var subdirs = [];
+                //             fs.unlinkSync(options.specRunnerDest);
+                //             grunt.file.recurse(tempDir, function (filepath, rootdir, subdir) {
+                //                 fs.unlinkSync(filepath);
+                //                 if (subdir) {
+                //                     subdirs.push(path.join(rootdir, subdir));
+                //                 }
+                //             });
+                //             subdirs.forEach(function (dir) {
+                //                 try {
+                //                     fs.rmdirSync(dir);
+                //                 } catch (e) {}
+                //             });
+                //             fs.rmdirSync(tempDir);
 
-                phantomjs.on('jasmine.done', function () {
-                    if (totalSpecs === 0) {
-                        grunt.log.error('No tests found for filter "' + filter.join(':') + '"');
-                        done(false);
-                    }
+                //             // Try to remove .grunt as well, but there could be other things in there.
+                //             try {
+                //                 fs.rmdirSync('.grunt');
+                //             } catch (e) {}
+                //         }
+                //         done(failedSpecs <= 0);
+                //     }
+                // });
 
-                    if (options.display === 'short') {
-                        grunt.log.writeln();
-                    }
+                // phantomjs.on('jasmine.done', function () {
+                //     if (totalSpecs === 0) {
+                //         grunt.log.error('No tests found for filter "' + filter.join(':') + '"');
+                //         done(false);
+                //     }
 
-                    if (options.summary) {
-                        reporter.reportFinish({
-                            totalSpecs: totalSpecs,
-                            passedSpecs: passedSpecs,
-                            failedSpecs: failedSpecs,
-                            skippedSpecs: skippedSpecs,
-                            skippedSuites: skippedSuites
-                        });
-                    }
-                    grunt.verbose.writeln('Halting phantomjs');
-                    phantomjs.halt();
-                });
+                //     if (options.display === 'short') {
+                //         grunt.log.writeln();
+                //     }
 
-                phantomjs.on('jasmine.started', function () {
-                    grunt.verbose.ok('Jasmine suite started');
-                });
+                //     if (options.summary) {
+                //         reporter.reportFinish({
+                //             totalSpecs: totalSpecs,
+                //             passedSpecs: passedSpecs,
+                //             failedSpecs: failedSpecs,
+                //             skippedSpecs: skippedSpecs,
+                //             skippedSuites: skippedSuites
+                //         });
+                //     }
+                //     grunt.verbose.writeln('Halting phantomjs');
+                //     phantomjs.halt();
+                // });
 
-                phantomjs.on('jasmine.suiteStarted', function (suiteMetadata) {
-                    if (!suiteFilter || suiteMetadata.description === suiteFilter) {
-                        if (options.display === 'full') {
-                            reporter.reportSuiteStarted(suiteMetadata.description);
-                        }
-                    } else {
-                        ignoreSuite = true;
-                    }
-                });
+                // phantomjs.on('jasmine.started', function () {
+                //     grunt.verbose.ok('Jasmine suite started');
+                // });
 
-                phantomjs.on('jasmine.suiteDone', function (suiteMetadata) {
-                    if (!ignoreSuite) {
-                        var disabled = suiteMetadata.status === 'disabled';
+                // phantomjs.on('jasmine.suiteStarted', function (suiteMetadata) {
+                //     if (!suiteFilter || suiteMetadata.description === suiteFilter) {
+                //         if (options.display === 'full') {
+                //             reporter.reportSuiteStarted(suiteMetadata.description);
+                //         }
+                //     } else {
+                //         ignoreSuite = true;
+                //     }
+                // });
 
-                        if (options.display === 'full') {
-                            reporter.reportSuiteDone(disabled);
-                        }
+                // phantomjs.on('jasmine.suiteDone', function (suiteMetadata) {
+                //     if (!ignoreSuite) {
+                //         var disabled = suiteMetadata.status === 'disabled';
 
-                        if (disabled) {
-                            skippedSuites++;
-                        }
-                    } else {
-                        ignoreSuite = false;
-                    }
-                });
+                //         if (options.display === 'full') {
+                //             reporter.reportSuiteDone(disabled);
+                //         }
 
-                phantomjs.on('jasmine.specStarted', function (specMetadata) {
-                    if (!ignoreSuite && (!specFilter || specFilter === specMetadata.description)) {
-                        totalSpecs++;
-                    } else {
-                        ignoreSpec = true;
-                    }
-                });
+                //         if (disabled) {
+                //             skippedSuites++;
+                //         }
+                //     } else {
+                //         ignoreSuite = false;
+                //     }
+                // });
 
-                phantomjs.on('jasmine.specDone', function (specMetadata) {
-                    if (!ignoreSuite && !ignoreSpec) {
-                        var skipped = specMetadata.status === 'pending';
+                // phantomjs.on('jasmine.specStarted', function (specMetadata) {
+                //     if (!ignoreSuite && (!specFilter || specFilter === specMetadata.description)) {
+                //         totalSpecs++;
+                //     } else {
+                //         ignoreSpec = true;
+                //     }
+                // });
 
-                        if (options.display !== 'none') {
-                            reporter.reportSpec(
-                                specMetadata.description,
-                                skipped,
-                                specMetadata.passedExpectations,
-                                specMetadata.failedExpectations,
-                                options.display
-                            );
-                        }
+                // phantomjs.on('jasmine.specDone', function (specMetadata) {
+                //     if (!ignoreSuite && !ignoreSpec) {
+                //         var skipped = specMetadata.status === 'pending';
 
-                        if (specMetadata.failedExpectations.length !== 0) {
-                            failedSpecs++;
-                        } else if (skipped) {
-                            skippedSpecs++;
-                        } else {
-                            passedSpecs++;
-                        }
-                    } else {
-                        ignoreSpec = false;
-                    }
-                });
+                //         if (options.display !== 'none') {
+                //             reporter.reportSpec(
+                //                 specMetadata.description,
+                //                 skipped,
+                //                 specMetadata.passedExpectations,
+                //                 specMetadata.failedExpectations,
+                //                 options.display
+                //             );
+                //         }
 
-                phantomjs.on('console', function (msg) {
-                    if (options.display === 'full') {
-                        grunt.log.writeln('\n' + chalk.yellow('log: ') + msg);
-                    }
-                });
+                //         if (specMetadata.failedExpectations.length !== 0) {
+                //             failedSpecs++;
+                //         } else if (skipped) {
+                //             skippedSpecs++;
+                //         } else {
+                //             passedSpecs++;
+                //         }
+                //     } else {
+                //         ignoreSpec = false;
+                //     }
+                // });
+
+                // phantomjs.on('console', function (msg) {
+                //     if (options.display === 'full') {
+                //         grunt.log.writeln('\n' + chalk.yellow('log: ') + msg);
+                //     }
+                // });
             } else {
                 done();
                 return;
